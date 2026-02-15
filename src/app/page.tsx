@@ -190,7 +190,7 @@ export default function Home() {
   }
 
   return (
-    <div className="fixed inset-0">
+    <div className="fixed top-0 left-0 w-full" style={{ height: '100dvh' }}>
       <MapWrapper
         vehicles={vehicles}
         origin={origin}
