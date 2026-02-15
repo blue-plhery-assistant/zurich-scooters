@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   MapContainer,
   TileLayer,
@@ -12,7 +12,6 @@ import {
 import L from 'leaflet';
 import type { Vehicle } from '@/lib/types';
 import { PROVIDERS } from '@/lib/types';
-import { pointToSegmentM, haversineM } from '@/lib/geo';
 
 function createScooterIcon(provider: string): L.DivIcon {
   const cfg = PROVIDERS[provider] ?? { color: '#999', initial: '?' };
@@ -44,7 +43,7 @@ function FitBounds({ vehicles, origin, destination }: {
     if (destination) points.push(destination);
     vehicles.forEach(v => points.push([v.lat, v.lng]));
     if (points.length > 1) {
-      map.fitBounds(points.map(p => L.latLng(p[0], p[1])).map(ll => [ll.lat, ll.lng] as [number, number]), { padding: [40, 40] });
+      map.fitBounds(points, { padding: [40, 40] });
     }
   }, [vehicles, origin, destination, map]);
   return null;
@@ -68,7 +67,6 @@ function getCorridorPolygon(
   const offsetLat = (widthM / mPerDegLat) * (dx / len);
   const offsetLng = (widthM / mPerDegLng) * (-dy / len);
 
-  // Perpendicular offset
   return [
     [alat + offsetLat, alng + offsetLng],
     [blat + offsetLat, blng + offsetLng],
@@ -88,8 +86,6 @@ interface MapComponentProps {
   origin: [number, number];
   destination: [number, number] | null;
   corridorWidth: number;
-  enabledProviders: Set<string>;
-  minBattery: number;
   tileLayer: 'dark' | 'light' | 'osm';
 }
 
@@ -98,31 +94,16 @@ export default function MapComponent({
   origin,
   destination,
   corridorWidth,
-  enabledProviders,
-  minBattery,
   tileLayer,
 }: MapComponentProps) {
-  const iconCache = useRef<Record<string, L.DivIcon>>({});
-
-  const getIcon = (provider: string) => {
-    if (!iconCache.current[provider]) {
-      iconCache.current[provider] = createScooterIcon(provider);
+  // Pre-create all provider icons (only 5 providers, stable across renders)
+  const iconMap = useMemo(() => {
+    const icons: Record<string, L.DivIcon> = {};
+    for (const provider of Object.keys(PROVIDERS)) {
+      icons[provider] = createScooterIcon(provider);
     }
-    return iconCache.current[provider];
-  };
-
-  const filteredVehicles = useMemo(() => {
-    let filtered = vehicles.filter(v => enabledProviders.has(v.provider));
-    if (minBattery > 0) {
-      filtered = filtered.filter(v => v.battery !== null && v.battery >= minBattery);
-    }
-    if (destination) {
-      filtered = filtered.filter(v =>
-        pointToSegmentM(v.lat, v.lng, origin[0], origin[1], destination[0], destination[1]) <= corridorWidth
-      );
-    }
-    return filtered;
-  }, [vehicles, enabledProviders, minBattery, destination, origin, corridorWidth]);
+    return icons;
+  }, []);
 
   const corridorPoly = useMemo(() => {
     if (!destination) return null;
@@ -159,8 +140,8 @@ export default function MapComponent({
         />
       )}
 
-      {filteredVehicles.map((v, i) => (
-        <Marker key={`${v.provider}-${v.vehicle_id}-${i}`} position={[v.lat, v.lng]} icon={getIcon(v.provider)}>
+      {vehicles.map((v, i) => (
+        <Marker key={`${v.provider}-${v.vehicle_id}-${i}`} position={[v.lat, v.lng]} icon={iconMap[v.provider]}>
           <Popup>
             <div className="text-sm">
               <div className="font-bold" style={{ color: PROVIDERS[v.provider]?.color }}>
@@ -184,7 +165,7 @@ export default function MapComponent({
         </Marker>
       ))}
 
-      <FitBounds vehicles={filteredVehicles} origin={origin} destination={destination} />
+      <FitBounds vehicles={vehicles} origin={origin} destination={destination} />
     </MapContainer>
   );
 }

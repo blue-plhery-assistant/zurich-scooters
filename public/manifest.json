@@ -4,8 +4,8 @@
   "description": "Find nearby scooters in Zurich",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ffffff",
+  "background_color": "#e0ddd8",
+  "theme_color": "#e0ddd8",
   "icons": [
     {
       "src": "/icon-192.png",

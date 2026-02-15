@@ -1,6 +1,8 @@
 # 🛴 Scooters Nearby — Zurich
 
-A web app showing nearby scooters from 5 providers on an interactive map.
+A mobile-friendly PWA showing nearby e-scooters from 5 providers on an interactive map.
+
+**Live:** Deployed on Netlify
 
 ## Providers
 
@@ -14,21 +16,22 @@ A web app showing nearby scooters from 5 providers on an interactive map.
 
 ## Features
 
-- **Interactive map** with Leaflet + OpenStreetMap tiles
-- **Geocoding** via Nominatim (address search)
-- **Server-side GBFS fetching** (no CORS issues)
-- **Provider toggles**, battery filter, radius control
-- **Corridor mode**: set a destination to find scooters along your route
-- **Auto-fit** map bounds to show all results
-- **Mobile-friendly** with collapsible controls
+- **Interactive map** with Leaflet + OpenStreetMap / CARTO tiles (light, dark, OSM)
+- **Geocoding** via Nominatim (address search for origin & destination)
+- **Server-side GBFS fetching** — no CORS issues, API responses cached
+- **Provider toggles**, battery filter, search radius slider
+- **Corridor mode** — set a destination to find scooters along your route
+- **Auto-fit** map bounds to visible results
+- **PWA** — installable with offline-capable home screen launch, persists last search
+- **Mobile-friendly** — bottom-sheet controls, safe-area support, `100dvh` layout
 
 ## Tech Stack
 
 - Next.js 16 (App Router)
-- TypeScript
-- Tailwind CSS
+- TypeScript (strict)
+- Tailwind CSS v4
 - react-leaflet + Leaflet
-- All GBFS feeds are free, no API keys needed
+- All GBFS feeds are free — no API keys needed
 
 ## Getting Started
 
@@ -43,13 +46,41 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### `GET /api/scooters`
 
+Returns scooters near a point, sorted by distance.
+
 Query params:
 - `lat`, `lng` — origin coordinates (default: Zurich center)
 - `radius` — search radius in meters (default: 500)
 - `minBattery` — minimum battery % (default: 0)
 - `provider` — comma-separated filter (e.g., `bolt,lime`)
 
+Response: `{ vehicles: Vehicle[], providers: Record<string, number> }`
+
 ### `GET /api/geocode`
 
+Geocodes an address via Nominatim, restricted to Switzerland.
+
 Query params:
-- `q` — address to geocode (uses Nominatim, restricted to Switzerland)
+- `q` — address to search
+
+Response: `Array<{ lat, lng, display_name }>`
+
+## Architecture
+
+```
+src/
+├── app/
+│   ├── api/
+│   │   ├── geocode/route.ts   # Nominatim proxy
+│   │   └── scooters/route.ts  # GBFS aggregator
+│   ├── globals.css            # Tailwind + custom controls CSS
+│   ├── layout.tsx             # Root layout, PWA meta
+│   └── page.tsx               # Main page, state management
+├── components/
+│   ├── ControlsPanel.tsx      # Search controls UI
+│   ├── MapComponent.tsx       # Leaflet map (client-only)
+│   └── MapWrapper.tsx         # Dynamic import wrapper (no SSR)
+└── lib/
+    ├── geo.ts                 # Haversine distance, point-to-segment
+    └── types.ts               # Vehicle types, provider config
+```

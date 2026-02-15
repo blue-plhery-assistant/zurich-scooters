@@ -121,5 +121,8 @@ export async function GET(request: NextRequest) {
     providers[v.provider] = (providers[v.provider] ?? 0) + 1;
   }
 
-  return NextResponse.json({ vehicles, providers });
+  return NextResponse.json(
+    { vehicles, providers },
+    { headers: { 'Cache-Control': 'public, max-age=30, s-maxage=30' } }
+  );
 }

@@ -19,6 +19,7 @@ export async function GET(request: NextRequest) {
       lat: parseFloat(r.lat),
       lng: parseFloat(r.lon),
       display_name: r.display_name,
-    }))
+    })),
+    { headers: { 'Cache-Control': 'public, max-age=86400, s-maxage=86400' } }
   );
 }

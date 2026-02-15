@@ -10,8 +10,6 @@ interface MapWrapperProps {
   origin: [number, number];
   destination: [number, number] | null;
   corridorWidth: number;
-  enabledProviders: Set<string>;
-  minBattery: number;
   tileLayer: 'dark' | 'light' | 'osm';
 }
 

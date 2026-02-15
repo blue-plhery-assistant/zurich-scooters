@@ -5,6 +5,7 @@ import MapWrapper from '@/components/MapWrapper';
 import ControlsPanel from '@/components/ControlsPanel';
 import type { Vehicle, ScooterResponse } from '@/lib/types';
 import { PROVIDERS } from '@/lib/types';
+import { pointToSegmentM } from '@/lib/geo';
 
 const ZURICH_CENTER: [number, number] = [47.3769, 8.5417];
 
@@ -28,8 +29,17 @@ function loadParamsFromStorage(): Record<string, string> {
   } catch { return {}; }
 }
 
-function readUrlParams() {
-  if (typeof window === 'undefined') return {};
+interface UrlParams {
+  origin: [number, number] | null;
+  dest: [number, number] | null;
+  radius: number | undefined;
+  minBattery: number | undefined;
+  tileLayer: 'dark' | 'light' | 'osm' | undefined;
+  corridorWidth: number | undefined;
+}
+
+function readUrlParams(): UrlParams {
+  if (typeof window === 'undefined') return { origin: null, dest: null, radius: undefined, minBattery: undefined, tileLayer: undefined, corridorWidth: undefined };
   const p = new URLSearchParams(window.location.search);
   const hasUrlParams = p.toString().length > 0;
 
@@ -37,7 +47,6 @@ function readUrlParams() {
   if (!hasUrlParams) {
     const stored = loadParamsFromStorage();
     if (Object.keys(stored).length > 0) {
-      // Restore URL from stored params
       const sp = new URLSearchParams(stored);
       window.history.replaceState(null, '', `?${sp.toString()}`);
       return {
@@ -78,6 +87,7 @@ export default function Home() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [providerCounts, setProviderCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const initializedRef = useRef(false);
 
@@ -140,6 +150,7 @@ export default function Home() {
   const fetchScooters = useCallback(async () => {
     if (!origin) return;
     setLoading(true);
+    setError(null);
     try {
       const params = new URLSearchParams({
         lat: origin[0].toString(),
@@ -148,11 +159,13 @@ export default function Home() {
         minBattery: minBattery.toString(),
       });
       const res = await fetch(`/api/scooters?${params}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ScooterResponse = await res.json();
       setVehicles(data.vehicles);
       setProviderCounts(data.providers);
     } catch (e) {
       console.error('Failed to fetch scooters:', e);
+      setError('Failed to load scooters. Tap refresh to retry.');
     } finally {
       setLoading(false);
     }
@@ -171,14 +184,24 @@ export default function Home() {
     });
   };
 
-  const filteredCount = useMemo(() => {
-    return vehicles.filter(v => enabledProviders.has(v.provider)).length;
-  }, [vehicles, enabledProviders]);
+  // Centralized filtering: provider, battery, and corridor
+  const filteredVehicles = useMemo(() => {
+    let filtered = vehicles.filter(v => enabledProviders.has(v.provider));
+    if (minBattery > 0) {
+      filtered = filtered.filter(v => v.battery !== null && v.battery >= minBattery);
+    }
+    if (destination) {
+      filtered = filtered.filter(v =>
+        pointToSegmentM(v.lat, v.lng, origin![0], origin![1], destination[0], destination[1]) <= corridorWidth
+      );
+    }
+    return filtered;
+  }, [vehicles, enabledProviders, minBattery, destination, origin, corridorWidth]);
 
   // Show locating state
   if (!origin) {
     return (
-      <div className="fixed inset-0 flex items-center justify-center bg-gray-100">
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-100" role="status">
         {locating && (
           <div className="text-center">
             <div className="text-4xl mb-3">📍</div>
@@ -192,12 +215,10 @@ export default function Home() {
   return (
     <div className="fixed top-0 left-0 w-full" style={{ height: '100dvh' }}>
       <MapWrapper
-        vehicles={vehicles}
+        vehicles={filteredVehicles}
         origin={origin}
         destination={destination}
         corridorWidth={corridorWidth}
-        enabledProviders={enabledProviders}
-        minBattery={minBattery}
         tileLayer={tileLayer}
       />
       <ControlsPanel
@@ -208,8 +229,9 @@ export default function Home() {
         corridorWidth={corridorWidth}
         enabledProviders={enabledProviders}
         providerCounts={providerCounts}
-        totalCount={filteredCount}
+        totalCount={filteredVehicles.length}
         loading={loading}
+        error={error}
         tileLayer={tileLayer}
         onOriginChange={(lat, lng) => setOrigin([lat, lng])}
         onDestinationChange={(lat, lng) => setDestination([lat, lng])}
