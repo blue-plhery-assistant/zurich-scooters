@@ -6,6 +6,7 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  background-color: #e0ddd8; /* match CartoDB Positron tile bg */
 }
 
 /* Fix leaflet popup styling with Tailwind reset */
@@ -19,7 +20,7 @@ html, body {
 
 /* Controls - mobile bottom sheet / desktop top-left overlay */
 .controls-container {
-  position: absolute;
+  position: fixed;
   z-index: 1000;
 }
 

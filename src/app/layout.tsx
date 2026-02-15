@@ -46,7 +46,7 @@ export default function RootLayout({
           crossOrigin=""
         />
         <link rel="apple-touch-icon" href="/icon-192.png" />
-        <meta name="theme-color" content="#ffffff" />
+        <meta name="theme-color" content="#e0ddd8" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

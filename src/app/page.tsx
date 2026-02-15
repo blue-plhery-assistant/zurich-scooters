@@ -178,7 +178,7 @@ export default function Home() {
   // Show locating state
   if (!origin) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-gray-100">
+      <div className="fixed inset-0 flex items-center justify-center bg-gray-100">
         {locating && (
           <div className="text-center">
             <div className="text-4xl mb-3">📍</div>
@@ -190,7 +190,7 @@ export default function Home() {
   }
 
   return (
-    <div className="w-screen h-screen relative">
+    <div className="fixed inset-0">
       <MapWrapper
         vehicles={vehicles}
         origin={origin}
