@@ -1,28 +1,104 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import MapWrapper from '@/components/MapWrapper';
 import ControlsPanel from '@/components/ControlsPanel';
 import type { Vehicle, ScooterResponse } from '@/lib/types';
 import { PROVIDERS } from '@/lib/types';
 
-const DEFAULT_ORIGIN: [number, number] = [47.376, 8.528];
+const ZURICH_CENTER: [number, number] = [47.3769, 8.5417];
+
+function parseCoord(s: string | null): [number, number] | null {
+  if (!s) return null;
+  const parts = s.split(',').map(Number);
+  if (parts.length === 2 && parts.every(n => isFinite(n))) return [parts[0], parts[1]];
+  return null;
+}
+
+function readUrlParams() {
+  if (typeof window === 'undefined') return {};
+  const p = new URLSearchParams(window.location.search);
+  return {
+    origin: parseCoord(p.get('origin')),
+    dest: parseCoord(p.get('dest')),
+    radius: p.get('radius') ? parseInt(p.get('radius')!) : undefined,
+    minBattery: p.get('minBattery') ? parseInt(p.get('minBattery')!) : undefined,
+    tileLayer: (['dark', 'light', 'osm'] as const).includes(p.get('tile') as 'dark' | 'light' | 'osm')
+      ? (p.get('tile') as 'dark' | 'light' | 'osm')
+      : undefined,
+    corridorWidth: p.get('corridor') ? parseInt(p.get('corridor')!) : undefined,
+  };
+}
 
 export default function Home() {
-  const [origin, setOrigin] = useState<[number, number]>(DEFAULT_ORIGIN);
+  const [origin, setOrigin] = useState<[number, number] | null>(null);
   const [destination, setDestination] = useState<[number, number] | null>(null);
   const [radius, setRadius] = useState(500);
   const [minBattery, setMinBattery] = useState(0);
   const [corridorWidth, setCorridorWidth] = useState(80);
-  const [tileLayer, setTileLayer] = useState<'dark' | 'light' | 'osm'>('dark');
+  const [tileLayer, setTileLayer] = useState<'dark' | 'light' | 'osm'>('light');
   const [enabledProviders, setEnabledProviders] = useState<Set<string>>(
     new Set(Object.keys(PROVIDERS))
   );
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [providerCounts, setProviderCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const initializedRef = useRef(false);
+
+  // Read URL params and/or geolocate on mount
+  useEffect(() => {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+
+    const params = readUrlParams();
+    if (params.radius !== undefined) setRadius(params.radius);
+    if (params.minBattery !== undefined) setMinBattery(params.minBattery);
+    if (params.tileLayer) setTileLayer(params.tileLayer);
+    if (params.corridorWidth !== undefined) setCorridorWidth(params.corridorWidth);
+    if (params.dest) setDestination(params.dest);
+
+    if (params.origin) {
+      setOrigin(params.origin);
+    } else {
+      // Try browser geolocation
+      setLocating(true);
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setOrigin([pos.coords.latitude, pos.coords.longitude]);
+            setLocating(false);
+          },
+          () => {
+            setOrigin(ZURICH_CENTER);
+            setLocating(false);
+          },
+          { timeout: 8000, enableHighAccuracy: false }
+        );
+      } else {
+        setOrigin(ZURICH_CENTER);
+        setLocating(false);
+      }
+    }
+  }, []);
+
+  // Sync state to URL
+  useEffect(() => {
+    if (!origin) return;
+    const p = new URLSearchParams();
+    p.set('origin', `${origin[0].toFixed(4)},${origin[1].toFixed(4)}`);
+    if (destination) p.set('dest', `${destination[0].toFixed(4)},${destination[1].toFixed(4)}`);
+    if (radius !== 500) p.set('radius', String(radius));
+    if (minBattery !== 0) p.set('minBattery', String(minBattery));
+    if (tileLayer !== 'light') p.set('tile', tileLayer);
+    if (corridorWidth !== 80) p.set('corridor', String(corridorWidth));
+    const qs = p.toString();
+    const newUrl = qs ? `?${qs}` : window.location.pathname;
+    window.history.replaceState(null, '', newUrl);
+  }, [origin, destination, radius, minBattery, tileLayer, corridorWidth]);
 
   const fetchScooters = useCallback(async () => {
+    if (!origin) return;
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -58,6 +134,20 @@ export default function Home() {
   const filteredCount = useMemo(() => {
     return vehicles.filter(v => enabledProviders.has(v.provider)).length;
   }, [vehicles, enabledProviders]);
+
+  // Show locating state
+  if (!origin) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-gray-100">
+        {locating && (
+          <div className="text-center">
+            <div className="text-4xl mb-3">📍</div>
+            <div className="text-gray-600 font-medium">Locating…</div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="w-screen h-screen relative">

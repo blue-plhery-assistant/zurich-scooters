@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { PROVIDERS } from '@/lib/types';
 
 interface GeoResult {
@@ -52,12 +52,19 @@ export default function ControlsPanel({
   onRefresh,
   onTileLayerChange,
 }: ControlsPanelProps) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true); // default collapsed, expanded on desktop via CSS
   const [originQuery, setOriginQuery] = useState('');
   const [destQuery, setDestQuery] = useState('');
   const [originResults, setOriginResults] = useState<GeoResult[]>([]);
   const [destResults, setDestResults] = useState<GeoResult[]>([]);
   const geocodeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Expand by default on desktop
+  useEffect(() => {
+    if (window.matchMedia('(min-width: 768px)').matches) {
+      setCollapsed(false);
+    }
+  }, []);
 
   const geocode = useCallback(async (q: string, setter: (r: GeoResult[]) => void) => {
     if (q.length < 3) { setter([]); return; }
@@ -82,32 +89,45 @@ export default function ControlsPanel({
     geocodeTimer.current = setTimeout(() => geocode(val, setDestResults), 500);
   };
 
-  return (
-    <div className="absolute top-3 left-3 z-[1000] max-w-xs w-full">
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="md:hidden mb-1 px-3 py-1.5 bg-gray-900/90 text-white rounded-lg text-sm font-medium backdrop-blur-sm"
-      >
-        {collapsed ? '☰ Controls' : '✕ Close'}
-      </button>
+  const toggleButton = (
+    <button
+      onClick={() => setCollapsed(!collapsed)}
+      className="controls-toggle"
+      aria-label={collapsed ? 'Open controls' : 'Close controls'}
+    >
+      {collapsed ? (
+        <span className="flex items-center gap-2">
+          <span className="text-base">🛴</span>
+          <span>{totalCount} scooter{totalCount !== 1 ? 's' : ''}</span>
+          {loading && <span>⏳</span>}
+        </span>
+      ) : (
+        <span>✕</span>
+      )}
+    </button>
+  );
 
-      <div className={`${collapsed ? 'hidden md:block' : 'block'} bg-gray-900/90 backdrop-blur-sm rounded-xl p-4 text-white text-sm shadow-xl space-y-3 max-h-[calc(100vh-80px)] overflow-y-auto`}>
-        <h2 className="text-lg font-bold flex items-center gap-2">
+  return (
+    <div className="controls-container">
+      {toggleButton}
+
+      <div className={`controls-panel ${collapsed ? 'controls-panel-hidden' : 'controls-panel-visible'}`}>
+        <h2 className="text-lg font-bold flex items-center gap-2 mb-3">
           🛴 Scooters Nearby
         </h2>
 
         {/* Origin */}
-        <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wide">Origin</label>
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Origin</label>
           <input
             type="text"
             value={originQuery}
             onChange={e => handleOriginInput(e.target.value)}
             placeholder="Search address..."
-            className="w-full mt-1 px-3 py-1.5 bg-gray-800 rounded-lg border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+            className="ctrl-input"
           />
           {originResults.length > 0 && (
-            <div className="mt-1 bg-gray-800 rounded-lg border border-gray-700 max-h-32 overflow-y-auto">
+            <div className="bg-white rounded-lg border border-gray-200 max-h-32 overflow-y-auto shadow-sm">
               {originResults.map((r, i) => (
                 <button
                   key={i}
@@ -116,42 +136,42 @@ export default function ControlsPanel({
                     setOriginQuery(r.display_name.split(',')[0]);
                     setOriginResults([]);
                   }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-gray-700 text-xs truncate"
+                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-xs truncate text-gray-700"
                 >
                   {r.display_name}
                 </button>
               ))}
             </div>
           )}
-          <div className="text-xs text-gray-500 mt-0.5">
+          <div className="text-xs text-gray-400">
             {origin[0].toFixed(4)}, {origin[1].toFixed(4)}
           </div>
         </div>
 
         {/* Destination */}
-        <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wide">
-            Destination <span className="text-gray-600">(corridor mode)</span>
+        <div className="space-y-1">
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">
+            Destination <span className="text-gray-400">(corridor)</span>
           </label>
-          <div className="flex gap-1 mt-1">
+          <div className="flex gap-1">
             <input
               type="text"
               value={destQuery}
               onChange={e => handleDestInput(e.target.value)}
               placeholder="Optional destination..."
-              className="flex-1 px-3 py-1.5 bg-gray-800 rounded-lg border border-gray-700 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500"
+              className="ctrl-input flex-1"
             />
             {destination && (
               <button
                 onClick={() => { onDestinationClear(); setDestQuery(''); }}
-                className="px-2 bg-red-900/50 rounded-lg text-xs hover:bg-red-800"
+                className="px-2 bg-red-100 text-red-600 rounded-lg text-xs hover:bg-red-200"
               >
                 ✕
               </button>
             )}
           </div>
           {destResults.length > 0 && (
-            <div className="mt-1 bg-gray-800 rounded-lg border border-gray-700 max-h-32 overflow-y-auto">
+            <div className="bg-white rounded-lg border border-gray-200 max-h-32 overflow-y-auto shadow-sm">
               {destResults.map((r, i) => (
                 <button
                   key={i}
@@ -160,7 +180,7 @@ export default function ControlsPanel({
                     setDestQuery(r.display_name.split(',')[0]);
                     setDestResults([]);
                   }}
-                  className="w-full text-left px-3 py-1.5 hover:bg-gray-700 text-xs truncate"
+                  className="w-full text-left px-3 py-1.5 hover:bg-gray-100 text-xs truncate text-gray-700"
                 >
                   {r.display_name}
                 </button>
@@ -172,7 +192,7 @@ export default function ControlsPanel({
         {/* Corridor Width */}
         {destination && (
           <div>
-            <label className="text-xs text-gray-400 uppercase tracking-wide">
+            <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">
               Corridor: {corridorWidth}m
             </label>
             <input
@@ -188,7 +208,7 @@ export default function ControlsPanel({
 
         {/* Radius */}
         <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wide">
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">
             Radius: {radius}m
           </label>
           <input
@@ -204,7 +224,7 @@ export default function ControlsPanel({
 
         {/* Min Battery */}
         <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wide">
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">
             Min Battery: {minBattery}%
           </label>
           <input
@@ -220,10 +240,10 @@ export default function ControlsPanel({
 
         {/* Provider Toggles */}
         <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wide">Providers</label>
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Providers</label>
           <div className="mt-1 space-y-1">
             {Object.entries(PROVIDERS).map(([key, cfg]) => (
-              <label key={key} className="flex items-center gap-2 cursor-pointer">
+              <label key={key} className="flex items-center gap-2 cursor-pointer text-gray-700">
                 <input
                   type="checkbox"
                   checked={enabledProviders.has(key)}
@@ -231,7 +251,7 @@ export default function ControlsPanel({
                   className="accent-blue-500"
                 />
                 <span
-                  className="w-4 h-4 rounded-full inline-block border-2 border-white"
+                  className="w-4 h-4 rounded-full inline-block border-2 border-gray-300"
                   style={{ background: cfg.color }}
                 />
                 <span className="flex-1">{cfg.name}</span>
@@ -243,7 +263,7 @@ export default function ControlsPanel({
 
         {/* Tile Layer */}
         <div>
-          <label className="text-xs text-gray-400 uppercase tracking-wide">Map Style</label>
+          <label className="text-xs text-gray-500 uppercase tracking-wide font-medium">Map Style</label>
           <div className="mt-1 flex gap-1">
             {(['dark', 'light', 'osm'] as const).map(t => (
               <button
@@ -252,7 +272,7 @@ export default function ControlsPanel({
                 className={`flex-1 px-2 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                   tileLayer === t
                     ? 'bg-blue-600 text-white'
-                    : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                    : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
                 }`}
               >
                 {t === 'dark' ? '🌙 Dark' : t === 'light' ? '☀️ Light' : '🗺️ OSM'}
@@ -262,14 +282,14 @@ export default function ControlsPanel({
         </div>
 
         {/* Stats & Refresh */}
-        <div className="flex items-center justify-between pt-1 border-t border-gray-700">
-          <span className="text-gray-400">
+        <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+          <span className="text-gray-500">
             {totalCount} scooter{totalCount !== 1 ? 's' : ''}
           </span>
           <button
             onClick={onRefresh}
             disabled={loading}
-            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg text-xs font-medium"
+            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 rounded-lg text-xs font-medium text-white"
           >
             {loading ? '⏳' : '🔄'} Refresh
           </button>
