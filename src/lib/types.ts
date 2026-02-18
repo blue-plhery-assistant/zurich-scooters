@@ -26,4 +26,5 @@ export const PROVIDERS: Record<string, ProviderConfig> = {
   dott: { name: 'Dott', color: '#ff6600', initial: 'D' },
   lime: { name: 'Lime', color: '#32cd32', initial: 'L' },
   voi: { name: 'Voi', color: '#ff1493', initial: 'V' },
+  hopp: { name: 'Hopp', color: '#00BCD4', initial: 'H' },
 };

@@ -28,6 +28,10 @@ const PROVIDERS: Record<string, ProviderDef> = {
     url: 'https://api.mobidata-bw.de/sharing/gbfs/v2/voi_ch/free_bike_status',
     version: 2,
   },
+  hopp: {
+    url: 'https://api.hopp.bike/gbfs/ch-zurich/en/free_bike_status.json',
+    version: 2,
+  },
 };
 
 const ZURICH_BBOX = { latMin: 47.32, latMax: 47.43, lngMin: 8.45, lngMax: 8.60 };
@@ -38,6 +42,8 @@ interface RawVehicle {
   lng?: number;
   current_fuel_percent?: number;
   current_range_meters?: number;
+  hopp_battery_level?: number;
+  hopp_deeplink?: string;
   bike_id?: string;
   vehicle_id?: string;
   id?: string;
@@ -69,10 +75,12 @@ async function fetchProvider(name: string, info: ProviderDef): Promise<Vehicle[]
       }
 
       const fuelPct = v.current_fuel_percent;
-      const battery = fuelPct != null ? Math.round(fuelPct * 100) : null;
+      const battery = v.hopp_battery_level != null
+        ? Math.round(v.hopp_battery_level)
+        : fuelPct != null ? Math.round(fuelPct * 100) : null;
       const rangeM = v.current_range_meters != null ? Math.round(Number(v.current_range_meters)) : null;
       const rentalUris = v.rental_uris ?? {};
-      const deepLink = rentalUris.ios || rentalUris.android || null;
+      const deepLink = v.hopp_deeplink || rentalUris.ios || rentalUris.android || null;
 
       vehicles.push({
         provider: name,

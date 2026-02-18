@@ -1,6 +1,6 @@
 # 🛴 Scooters Nearby — Zurich
 
-A mobile-friendly PWA showing nearby e-scooters from 5 providers on an interactive map.
+A mobile-friendly PWA showing nearby e-scooters from 6 providers on an interactive map.
 
 **Live:** Deployed on Netlify
 
@@ -13,6 +13,7 @@ A mobile-friendly PWA showing nearby e-scooters from 5 providers on an interacti
 | Dott | 🟠 Orange | GBFS v2 via ridedott.com |
 | Lime | 🟢 Lime | GBFS v2 via mobidata-bw |
 | Voi | 🩷 Pink | GBFS v2 via mobidata-bw |
+| Hopp | 🩵 Cyan | GBFS v2 via hopp.bike |
 
 ## Features
 
