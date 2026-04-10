@@ -32,9 +32,16 @@ const PROVIDERS: Record<string, ProviderDef> = {
     url: 'https://api.hopp.bike/gbfs/ch-zurich/en/free_bike_status.json',
     version: 2,
   },
+  publibike: {
+    url: 'https://api.mobidata-bw.de/sharing/gbfs/v3/velospot_ch/vehicle_status',
+    version: 3,
+  },
 };
 
 const ZURICH_BBOX = { latMin: 47.32, latMax: 47.43, lngMin: 8.45, lngMax: 8.60 };
+
+// Only show PubliBike e-scooters (not bikes)
+const PUBLIBIKE_ESCOOTER_TYPE = 'PIB:VehicleType:escooter';
 
 interface RawVehicle {
   lat?: number;
@@ -46,6 +53,7 @@ interface RawVehicle {
   hopp_deeplink?: string;
   bike_id?: string;
   vehicle_id?: string;
+  vehicle_type_id?: string;
   id?: string;
   rental_uris?: { ios?: string; android?: string };
 }
@@ -73,6 +81,9 @@ async function fetchProvider(name: string, info: ProviderDef): Promise<Vehicle[]
       if (name === 'voi') {
         if (lat < ZURICH_BBOX.latMin || lat > ZURICH_BBOX.latMax || lon < ZURICH_BBOX.lngMin || lon > ZURICH_BBOX.lngMax) continue;
       }
+
+      // PubliBike: only show e-scooters, skip bikes
+      if (name === 'publibike' && v.vehicle_type_id !== PUBLIBIKE_ESCOOTER_TYPE) continue;
 
       const fuelPct = v.current_fuel_percent;
       const battery = v.hopp_battery_level != null
@@ -111,11 +122,11 @@ export async function GET(request: NextRequest) {
     ? Object.entries(PROVIDERS).filter(([k]) => providerFilter.includes(k))
     : Object.entries(PROVIDERS);
 
-  const results = await Promise.all(
-    targets.map(([name, info]) => fetchProvider(name, info))
-  );
+  const [vehicleResults] = await Promise.all([
+    Promise.all(targets.map(([name, info]) => fetchProvider(name, info))),
+  ]);
 
-  let vehicles = results.flat();
+  let vehicles = vehicleResults.flat();
 
   // Calculate distance and filter
   vehicles = vehicles
